@@ -209,3 +209,6 @@ __marimo__/
 # Folder
 data/*
 !data/.gitkeep
+
+experiments/*
+!experiments/.gitkeep
