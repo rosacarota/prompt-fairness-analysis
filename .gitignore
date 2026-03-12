@@ -210,5 +210,8 @@ __marimo__/
 data/*
 !data/.gitkeep
 
-experiments/*
-!experiments/.gitkeep
+experiments/evaluation/*
+!experiments/evaluation/.gitkeep
+
+experiments/outputs/*
+!experiments/outputs/.gitkeep
