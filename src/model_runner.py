@@ -1,32 +1,36 @@
 import json
 import argparse
 import re
+import os
 from pathlib import Path
 
-import requests
+from openai import OpenAI
+from dotenv import load_dotenv
 
 from prompt_builder import load_examples, build_baseline_prompt
 
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+load_dotenv()  # Load environment variables from .env file
 
+api_key = os.getenv("OPENROUTER_API_KEY")
+if not api_key:
+    raise ValueError("OPENROUTER_API_KEY not found. Please set it in your .env file.")
 
-def query_ollama(prompt: str, model_name: str) -> str:
-    """
-    Send a prompt to Ollama and return the generated response.
-    """
-    payload = {
-        "model": model_name,
-        "prompt": prompt,
-        "stream": False
-    }
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+)
 
-    response = requests.post(OLLAMA_URL, json=payload, timeout=120)
-    response.raise_for_status()
+def query_model(prompt: str, model_name: str) -> str:
+    response = client.chat.completions.create(
+        model=model_name,
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0
+    )
 
-    data = response.json()
-    return data["response"].strip()
-
+    return response.choices[0].message.content.strip()
 
 def save_results(results: list, output_path: str):
     """
@@ -117,12 +121,12 @@ def build_output_path(model_name: str, base_output_dir: str = "experiments/outpu
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run BBQ inference with Ollama.")
+    parser = argparse.ArgumentParser(description="Run BBQ inference with the OpenAI Python SDK.")
     parser.add_argument(
         "--model",
         type=str,
         required=True,
-        help="Ollama model name, e.g. qwen2.5:7b or gemma3:4b"
+        help="Model name, e.g. openai/gpt-oss-120b:free"
     )
     parser.add_argument(
         "--input",
@@ -160,7 +164,7 @@ def main():
 
     for i, example in enumerate(selected_examples, start=1):
         prompt = build_prompt(example, args.strategy)
-        response_text = query_ollama(prompt, args.model)
+        response_text = query_model(prompt, args.model)
 
         parsed_answer = parse_model_answer(response_text)
         gold_letter = label_to_letter(example["label"])
