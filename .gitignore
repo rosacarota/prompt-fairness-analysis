@@ -207,9 +207,6 @@ marimo/_lsp/
 __marimo__/
 
 # Folder
-data/*
-!data/.gitkeep
-
 experiments/evaluation/*
 !experiments/evaluation/.gitkeep
 
