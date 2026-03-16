@@ -74,15 +74,6 @@ def simplify_record(example):
     }
 
 
-def save_jsonl(records, output_path: Path):
-    """
-    Save the processed records in JSONL format.
-    """
-    with output_path.open("w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
-
-
 def save_json(records, output_path: Path):
     """
     Save the processed records in JSONL format.
@@ -105,14 +96,11 @@ def main():
     print("Simplifying records...")
     processed_records = [simplify_record(x) for x in disambig_dataset]
 
-    jsonl_path = OUTPUT_DIR / "bbq_disambiguated.jsonl"
     json_path = OUTPUT_DIR / "bbq_disambiguated.json"
 
     print("Saving processed dataset...")
-    save_jsonl(processed_records, jsonl_path)
     save_json(processed_records, json_path)
 
-    print(f"JSONL file saved to: {jsonl_path}")
     print(f"JSON file saved to: {json_path}")
 
 
