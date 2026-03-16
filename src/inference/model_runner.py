@@ -7,7 +7,7 @@ from pathlib import Path
 from openai import OpenAI
 from dotenv import load_dotenv
 
-from prompt_builder import load_examples, build_baseline_prompt
+from inference.prompt_builder import load_examples, build_baseline_prompt
 
 
 load_dotenv()  # Load environment variables from .env file
