@@ -50,6 +50,7 @@ def main():
             prompt_record=prompt_record,
             transformation_name=args.transformation
         )
+        
         metaprompt_records.append(rewriter_record)
 
     save_metaprompts(metaprompt_records, output_path)

@@ -51,10 +51,14 @@ Constraints:
 - Preserve the answer options exactly.
 - Do not change the correct answer.
 - Do not introduce new facts.
+- Do not introduce new information that is not present in the original prompt.
 - Keep the prompt natural and grammatically correct.
+- Do not explain your changes.
+- Do not add comments, notes, introductions, headings, or quotation marks.
+- Do not output phrases such as "Here is the rewritten prompt" or similar.
 
 Output format:
-Return only the rewritten prompt text."""
+Return only the rewritten prompt text, starting directly with the prompt itself. If your output contains anything other than the rewritten prompt, it is incorrect."""
 
 
 def build_rewriter_record(prompt_record: dict, transformation_name: str) -> dict:
@@ -69,10 +73,14 @@ def build_rewriter_record(prompt_record: dict, transformation_name: str) -> dict
     meta_prompt = build_transformation_metaprompt(original_prompt, transformation_target)
 
     return {
-        "example_id": prompt_record["example_id"],
-        "source_prompt_type": prompt_record["prompt_type"],
-        "transformation_name": transformation_name,
-        "transformation_target": transformation_target,
-        "original_prompt": original_prompt,
-        "meta_prompt": meta_prompt
-    }
+    "example_id": prompt_record["example_id"],
+    "category": prompt_record["category"],
+    "source_prompt_type": prompt_record["prompt_type"],
+    "transformation_name": transformation_name,
+    "transformation_target": transformation_target,
+    "original_prompt": original_prompt,
+    "meta_prompt": meta_prompt,
+    "gold_label": prompt_record["gold_label"],
+    "gold_answer": prompt_record["gold_answer"],
+    "stereotyped_groups": prompt_record.get("stereotyped_groups", [])
+}
