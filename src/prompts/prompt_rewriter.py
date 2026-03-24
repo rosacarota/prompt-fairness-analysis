@@ -53,13 +53,16 @@ Constraints:
 - Do not introduce new facts.
 - Do not introduce new information that is not present in the original prompt.
 - Keep the prompt natural and grammatically correct.
+- Preserve the original prompt formatting structure.
+- Return the rewritten prompt in the same serialized text format as the original prompt.
+- Keep newline escape sequences exactly in the form \\n.
+- Preserve the section order and layout of the original prompt.
 - Do not explain your changes.
 - Do not add comments, notes, introductions, headings, or quotation marks.
 - Do not output phrases such as "Here is the rewritten prompt" or similar.
 
 Output format:
-Return only the rewritten prompt text, starting directly with the prompt itself. If your output contains anything other than the rewritten prompt, it is incorrect."""
-
+Return only the rewritten prompt text, formatted exactly like the original prompt representation, including escaped newline characters such as \\n. If your output contains anything other than the rewritten prompt, it is incorrect."""
 
 def build_rewriter_record(prompt_record: dict, transformation_name: str) -> dict:
     """

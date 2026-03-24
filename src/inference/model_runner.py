@@ -1,40 +1,45 @@
 import json
 import argparse
 import re
-import os
 from pathlib import Path
 
 from openai import OpenAI
-from dotenv import load_dotenv
 
-from inference.prompt_builder import load_examples, build_baseline_prompt
-
-
-load_dotenv()  # Load environment variables from .env file
-
-api_key = os.getenv("OPENROUTER_API_KEY")
-if not api_key:
-    raise ValueError("OPENROUTER_API_KEY not found. Please set it in your .env file.")
+TEMPERATURE = 0.0
 
 client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=api_key,
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",
 )
 
-def query_model(prompt: str, model_name: str) -> str:
+def load_prompt_records(json_path: str) -> list:
+    """
+    Load prompt records from a JSON file.
+    """
+    path = Path(json_path)
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def query_model(prompt: str, model_name: str, temperature: float = 0.0) -> str:
+    """
+    Query a local Ollama model through the OpenAI-compatible API.
+    """
     response = client.chat.completions.create(
         model=model_name,
         messages=[
             {"role": "user", "content": prompt}
         ],
-        temperature=0
+        temperature=TEMPERATURE
     )
 
-    return response.choices[0].message.content.strip()
+    content = response.choices[0].message.content
+    return content.strip() if content else ""
 
-def save_results(results: list, output_path: str):
+
+def save_results(results: list, output_path: str) -> None:
     """
-    Save inference results to a JSON file.
+    Save inference results to JSON.
     """
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,14 +48,13 @@ def save_results(results: list, output_path: str):
         json.dump(results, f, ensure_ascii=False, indent=2)
 
 
-def build_prompt(example: dict, strategy: str) -> str:
-    """
-    Build the prompt according to the selected strategy.
-    """
-    if strategy == "baseline":
-        return build_baseline_prompt(example)
+def extract_prompt_text(record: dict) -> str:
+    if "rewritten_prompt" not in record:
+        raise ValueError(
+            f"Missing 'rewritten_prompt' for example_id={record.get('example_id')}."
+        )
 
-    raise ValueError(f"Unknown prompt strategy: {strategy}")
+    return record["rewritten_prompt"]
 
 
 def label_to_letter(label: int) -> str:
@@ -82,9 +86,6 @@ def parse_model_answer(raw_response: str) -> str:
 
 
 def compute_correctness(parsed_answer: str, gold_letter: str) -> int:
-    """
-    Return 1 if the parsed answer matches the gold answer, else 0.
-    """
     return int(parsed_answer == gold_letter)
 
 
@@ -95,97 +96,86 @@ def sanitize_model_name(model_name: str) -> str:
     return model_name.replace(":", "_").replace("/", "_")
 
 
-def build_output_path(model_name: str, base_output_dir: str = "experiments/outputs") -> str:
+def build_output_path(model_name: str, input_file: str, base_output_dir: str = "experiments/outputs") -> str:
     """
-    Create a model-specific output folder and generate an incremental file name.
+    Create a model-specific output folder and generate an output file name
+    based on the input prompt file name.
     """
     safe_model_name = sanitize_model_name(model_name)
     model_dir = Path(base_output_dir) / safe_model_name
     model_dir.mkdir(parents=True, exist_ok=True)
 
-    existing_files = list(model_dir.glob(f"{safe_model_name}_test_*.json"))
-
-    max_index = 0
-    pattern = re.compile(rf"{re.escape(safe_model_name)}_test_(\d+)\.json$")
-
-    for file_path in existing_files:
-        match = pattern.search(file_path.name)
-        if match:
-            file_index = int(match.group(1))
-            max_index = max(max_index, file_index)
-
-    next_index = max_index + 1
-    output_path = model_dir / f"{safe_model_name}_test_{next_index}.json"
-
-    return str(output_path)
+    input_stem = Path(input_file).stem
+    return str(model_dir / f"{input_stem}_results.json")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run BBQ inference with the OpenAI Python SDK.")
+    parser = argparse.ArgumentParser(description="Run inference on rewritten mutant prompts with local Ollama models")
     parser.add_argument(
         "--model",
         type=str,
         required=True,
-        help="Model name, e.g. openai/gpt-oss-120b:free"
+        help="Local Ollama model name, e.g. qwen2.5:7b, gemma3:4b, llama3.2:3b"
     )
     parser.add_argument(
         "--input",
         type=str,
-        default="data/processed/bbq_disambiguated.json",
-        help="Path to the processed input dataset"
+        required=True,
+        help="Path to the prompt JSON file"
     )
     parser.add_argument(
         "--output",
         type=str,
         default="experiments/outputs",
-        help="Base directory where model-specific result folders will be created"
-    )
-    parser.add_argument(
-        "--strategy",
-        type=str,
-        default="baseline",
-        help="Prompt strategy to use"
+        help="Base directory where result files will be saved"
     )
     parser.add_argument(
         "--num_examples",
         type=int,
-        default=1,
-        help="Number of examples to run"
+        default=None,
+        help="Optional number of prompt records to run"
     )
 
     args = parser.parse_args()
 
-    output_path = build_output_path(args.model, args.output)
+    prompt_records = load_prompt_records(args.input)
 
-    examples = load_examples(args.input)
-    selected_examples = examples[:args.num_examples]
+    if args.num_examples is not None:
+        prompt_records = prompt_records[:args.num_examples]
+
+    output_path = build_output_path(args.model, args.input, args.output)
 
     results = []
 
-    for i, example in enumerate(selected_examples, start=1):
-        prompt = build_prompt(example, args.strategy)
-        response_text = query_model(prompt, args.model)
+    for i, record in enumerate(prompt_records, start=1):
+        prompt_text = extract_prompt_text(record)
+        response_text = query_model(prompt_text, args.model)
 
         parsed_answer = parse_model_answer(response_text)
-        gold_letter = label_to_letter(example["label"])
+        gold_letter = label_to_letter(record["gold_label"])
         is_correct = compute_correctness(parsed_answer, gold_letter)
 
         result = {
-            "example_id": example["example_id"],
+            "example_id": record["example_id"],
+            "category": record.get("category"),
             "model_name": args.model,
-            "prompt_strategy": args.strategy,
-            "prompt_text": prompt,
+            "input_file": args.input,
+            "prompt_source_type": record.get("prompt_type", record.get("source_prompt_type")),
+            "transformation_name": record.get("transformation_name"),
+            "rewriter_model": record.get("rewriter_model"),
+            "prompt_text": prompt_text,
             "raw_response": response_text,
             "parsed_answer": parsed_answer,
-            "gold_label": example["label"],
+            "gold_label": record["gold_label"],
             "gold_letter": gold_letter,
-            "gold_answer": example["gold_answer"],
+            "gold_answer": record["gold_answer"],
+            "stereotyped_groups": record.get("stereotyped_groups", []),
             "is_correct": is_correct
         }
 
         results.append(result)
 
-        print(f"[{i}/{len(selected_examples)}] Example ID: {example['example_id']}")
+        print(f"[{i}/{len(prompt_records)}] Example ID: {record['example_id']}")
         print("Raw response:", response_text)
         print("Parsed answer:", parsed_answer)
         print("Gold letter:", gold_letter)

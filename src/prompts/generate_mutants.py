@@ -5,9 +5,10 @@ from openai import OpenAI
 
 
 INPUT_PATH = Path("data/meta-prompting/attribute_early_metaprompts.json")
-OUTPUT_PATH = Path("data/prompts/attribute_early_mutants.json")
+OUTPUT_PATH = Path("data/prompts/mutants/attribute_early_mutants.json")
 
 MODEL_NAME = "llama3.1:8b"
+TEMPERATURE = 0.0
 
 client = OpenAI(
     base_url="http://localhost:11434/v1",
@@ -32,7 +33,8 @@ def query_model(prompt: str, model_name: str) -> str:
         model=model_name,
         messages=[
             {"role": "user", "content": prompt}
-        ]
+        ],
+        temperature=TEMPERATURE
     )
 
     content = response.choices[0].message.content
