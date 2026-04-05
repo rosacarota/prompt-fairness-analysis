@@ -55,8 +55,8 @@ Constraints:
 - Keep the prompt natural and grammatically correct.
 - Preserve the original prompt formatting structure.
 - Return the rewritten prompt in the same serialized text format as the original prompt.
-- Keep newline escape sequences exactly in the form \\n.
-- Preserve the section order and layout of the original prompt.
+- Preserve line breaks exactly as in the original prompt.
+- Preserve the paragraph structure and section layout of the original prompt.
 - Do not explain your changes.
 - Do not add comments, notes, introductions, headings, or quotation marks.
 - Do not output phrases such as "Here is the rewritten prompt" or similar.
