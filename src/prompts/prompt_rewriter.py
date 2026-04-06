@@ -62,7 +62,7 @@ Constraints:
 - Do not output phrases such as "Here is the rewritten prompt" or similar.
 
 Output format:
-Return only the rewritten prompt text, formatted exactly like the original prompt representation, including escaped newline characters such as \\n. If your output contains anything other than the rewritten prompt, it is incorrect."""
+Return only the rewritten prompt text, formatted exactly like the original prompt representation. If your output contains anything other than the rewritten prompt, it is incorrect."""
 
 def build_rewriter_record(prompt_record: dict, transformation_name: str) -> dict:
     """
