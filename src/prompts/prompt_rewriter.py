@@ -7,6 +7,10 @@ TRANSFORMATION_TARGETS = {
         "Rewrite the prompt so that mentions of sensitive attributes "
         "appear as early as possible in the prompt."
     ),
+    "attribute_late": (
+        "Rewrite the prompt so that mentions of sensitive attributes "
+        "appear as late as possible in the prompt."
+    ),
 }
 
 

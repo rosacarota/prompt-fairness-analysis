@@ -1,0 +1,17 @@
+[
+  {
+    "example_id": 15327,
+    "category": "Race_x_gender",
+    "regeneration_reason": "invalid"
+  },
+  {
+    "example_id": 383,
+    "category": "Age",
+    "regeneration_reason": "invalid"
+  },
+  {
+    "example_id": 3113,
+    "category": "Gender_identity",
+    "regeneration_reason": "invalid"
+  }
+]
