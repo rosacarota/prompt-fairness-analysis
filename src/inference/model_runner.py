@@ -100,21 +100,60 @@ def sanitize_model_name(model_name: str) -> str:
     return model_name.replace(":", "_").replace("/", "_")
 
 
-def build_output_path(model_name: str, input_file: str, base_output_dir: str = "experiments/outputs") -> str:
+def ensure_unique_path(path: Path) -> Path:
+    """
+    If path already exists, create path_1, path_2, ...
+    Example:
+      file.json
+      file_1.json
+      file_2.json
+    """
+    if not path.exists():
+        return path
+
+    stem = path.stem
+    suffix = path.suffix
+    parent = path.parent
+
+    counter = 1
+    while True:
+        candidate = parent / f"{stem}_{counter}{suffix}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+def build_output_path(
+    model_name: str,
+    input_file: str,
+    base_output_dir: str = "experiments/outputs",
+    unique: bool = True
+) -> str:
     """
     Create a model-specific output folder and generate an output file name
     based on the input prompt file name.
+
+    Example:
+      experiments/outputs/llama3.1_8b/attribute_late_mutants_results.json
+      experiments/outputs/llama3.1_8b/attribute_late_mutants_results_1.json
     """
     safe_model_name = sanitize_model_name(model_name)
     model_dir = Path(base_output_dir) / safe_model_name
     model_dir.mkdir(parents=True, exist_ok=True)
 
     input_stem = Path(input_file).stem
-    return str(model_dir / f"{input_stem}_results.json")
+    output_path = model_dir / f"{input_stem}_results.json"
+
+    if unique:
+        output_path = ensure_unique_path(output_path)
+
+    return str(output_path)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run inference on rewritten prompts with local Ollama models")
+    parser = argparse.ArgumentParser(
+        description="Run inference on rewritten prompts with local Ollama models"
+    )
     parser.add_argument(
         "--model",
         type=str,
@@ -139,6 +178,11 @@ def main():
         default=None,
         help="Optional number of prompt records to run"
     )
+    parser.add_argument(
+        "--no-unique-names",
+        action="store_true",
+        help="If set, do not append _1, _2, ... when output file already exists"
+    )
 
     args = parser.parse_args()
 
@@ -147,7 +191,12 @@ def main():
     if args.num_examples is not None:
         prompt_records = prompt_records[:args.num_examples]
 
-    output_path = build_output_path(args.model, args.input, args.output)
+    output_path = build_output_path(
+        model_name=args.model,
+        input_file=args.input,
+        base_output_dir=args.output,
+        unique=not args.no_unique_names
+    )
 
     results = []
 
