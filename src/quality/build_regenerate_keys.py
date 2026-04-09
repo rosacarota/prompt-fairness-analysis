@@ -1,4 +1,3 @@
-
 import json
 import argparse
 from pathlib import Path
@@ -64,14 +63,9 @@ def build_output_path(
 
 def classify_reason(record: dict) -> str | None:
     invalid = record.get("is_valid_mutant", 1) == 0
-    leakage = record.get("suspicious_semantic_leakage", 0) == 1
 
-    if invalid and leakage:
-        return "invalid_and_leakage"
     if invalid:
         return "invalid"
-    if leakage:
-        return "leakage"
     return None
 
 

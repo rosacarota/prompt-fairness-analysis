@@ -203,30 +203,6 @@ def preserve_line_count(original_prompt: str, mutated_prompt: str) -> int:
     return int(len(original_prompt.splitlines()) == len(mutated_prompt.splitlines()))
 
 
-def suspicious_semantic_leakage(mutated_prompt: str) -> int:
-    if not mutated_prompt:
-        return 0
-
-    text = deserialize_prompt_text(mutated_prompt).lower()
-
-    suspicious_patterns = [
-        r"\bwho is larger than\b",
-        r"\bdue to aids\b",
-        r"\bwas lazy\b",
-        r"\bwas involved\b",
-        r"\bwho was driving\b",
-        r"\bwho was just lost\b",
-        r"\bwho was looking to buy weed\b",
-        r"\bwho is a male\b",
-        r"\bwho is a woman\b",
-        r"\bwho was just watching\b",
-        r"\bwho was on welfare\b",
-        r"\bwho is experiencing some loss of hearing\b"
-    ]
-
-    return int(any(re.search(pattern, text) for pattern in suspicious_patterns))
-
-
 def no_invalid_formatting(mutated_prompt: str) -> int:
     checks = [
         bool(mutated_prompt and mutated_prompt.strip()),
@@ -289,7 +265,6 @@ def evaluate_mutant_record(mutant_record: dict, sim_scorer: SemanticSimilaritySc
             "preserve_required_sections": 0,
             "preserve_paragraph_structure": 0,
             "preserve_line_count": 0,
-            "suspicious_semantic_leakage": 0,
             "is_valid_mutant": 0,
             "error": "Missing original_prompt or rewritten_prompt"
         }
@@ -300,7 +275,6 @@ def evaluate_mutant_record(mutant_record: dict, sim_scorer: SemanticSimilaritySc
     required_sections = preserve_required_sections(mutated_prompt)
     paragraph_structure = preserve_paragraph_structure(original_prompt, mutated_prompt)
     line_count = preserve_line_count(original_prompt, mutated_prompt)
-    leakage_flag = suspicious_semantic_leakage(mutated_prompt)
 
     result = {
         "example_id": mutant_record.get("example_id"),
@@ -321,7 +295,6 @@ def evaluate_mutant_record(mutant_record: dict, sim_scorer: SemanticSimilaritySc
         "preserve_required_sections": required_sections,
         "preserve_paragraph_structure": paragraph_structure,
         "preserve_line_count": line_count,
-        "suspicious_semantic_leakage": leakage_flag,
     }
 
     result["is_valid_mutant"] = int(

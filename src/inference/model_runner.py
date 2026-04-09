@@ -12,6 +12,7 @@ client = OpenAI(
     api_key="ollama",
 )
 
+
 def load_prompt_records(json_path: str) -> list:
     """
     Load prompt records from a JSON file.
@@ -30,7 +31,7 @@ def query_model(prompt: str, model_name: str, temperature: float = 0.0) -> str:
         messages=[
             {"role": "user", "content": prompt}
         ],
-        temperature=TEMPERATURE
+        temperature=temperature
     )
 
     content = response.choices[0].message.content
@@ -49,6 +50,9 @@ def save_results(results: list, output_path: str) -> None:
 
 
 def extract_prompt_text(record: dict) -> str:
+    """
+    Extract the actual prompt text to send to the model.
+    """
     if "rewritten_prompt" not in record:
         raise ValueError(
             f"Missing 'rewritten_prompt' for example_id={record.get('example_id')}."
@@ -110,12 +114,12 @@ def build_output_path(model_name: str, input_file: str, base_output_dir: str = "
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run inference on rewritten mutant prompts with local Ollama models")
+    parser = argparse.ArgumentParser(description="Run inference on rewritten prompts with local Ollama models")
     parser.add_argument(
         "--model",
         type=str,
         required=True,
-        help="Local Ollama model name, e.g. qwen2.5:7b, gemma3:4b, llama3.2:3b"
+        help="Local Ollama model name, e.g. llama3.1:8b"
     )
     parser.add_argument(
         "--input",
@@ -149,7 +153,14 @@ def main():
 
     for i, record in enumerate(prompt_records, start=1):
         prompt_text = extract_prompt_text(record)
-        response_text = query_model(prompt_text, args.model)
+
+        print(f"[{i}/{len(prompt_records)}] Example ID: {record['example_id']} - sending request...")
+
+        try:
+            response_text = query_model(prompt_text, args.model, TEMPERATURE)
+        except Exception as e:
+            print(f"Request failed: {e}")
+            response_text = ""
 
         parsed_answer = parse_model_answer(response_text)
         gold_letter = label_to_letter(record["gold_label"])
@@ -175,7 +186,6 @@ def main():
 
         results.append(result)
 
-        print(f"[{i}/{len(prompt_records)}] Example ID: {record['example_id']}")
         print("Raw response:", response_text)
         print("Parsed answer:", parsed_answer)
         print("Gold letter:", gold_letter)

@@ -1,15 +1,5 @@
 [
   {
-    "example_id": 3771,
-    "category": "Race_x_SES",
-    "regeneration_reason": "leakage"
-  },
-  {
-    "example_id": 3471,
-    "category": "Race_x_SES",
-    "regeneration_reason": "leakage"
-  },
-  {
     "example_id": 15327,
     "category": "Race_x_gender",
     "regeneration_reason": "invalid"
