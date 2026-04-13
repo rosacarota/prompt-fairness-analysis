@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 
-DEFAULT_MODEL_NAME = "openai/gpt-4o-mini-2024-07-18"
+DEFAULT_MODEL_NAME = "openai/gpt-5-mini"
 DEFAULT_TEMPERATURE = 0.0
 
 
