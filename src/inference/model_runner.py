@@ -50,15 +50,18 @@ def save_results(results: list, output_path: str) -> None:
 
 
 def extract_prompt_text(record: dict) -> str:
-    """
-    Extract the actual prompt text to send to the model.
-    """
-    if "rewritten_prompt" not in record:
-        raise ValueError(
-            f"Missing 'rewritten_prompt' for example_id={record.get('example_id')}."
-        )
+    if "rewritten_prompt" in record and isinstance(record["rewritten_prompt"], str):
+        if record["rewritten_prompt"].strip():
+            return record["rewritten_prompt"].strip()
 
-    return record["rewritten_prompt"]
+    if "prompt_text" in record and isinstance(record["prompt_text"], str):
+        if record["prompt_text"].strip():
+            return record["prompt_text"].strip()
+
+    raise ValueError(
+        f"Missing prompt text for example_id={record.get('example_id')}. "
+        f"Available keys: {list(record.keys())}"
+    )
 
 
 def label_to_letter(label: int) -> str:
@@ -101,13 +104,6 @@ def sanitize_model_name(model_name: str) -> str:
 
 
 def ensure_unique_path(path: Path) -> Path:
-    """
-    If path already exists, create path_1, path_2, ...
-    Example:
-      file.json
-      file_1.json
-      file_2.json
-    """
     if not path.exists():
         return path
 
@@ -129,14 +125,7 @@ def build_output_path(
     base_output_dir: str = "experiments/outputs",
     unique: bool = True
 ) -> str:
-    """
-    Create a model-specific output folder and generate an output file name
-    based on the input prompt file name.
 
-    Example:
-      experiments/outputs/llama3.1_8b/attribute_late_mutants_results.json
-      experiments/outputs/llama3.1_8b/attribute_late_mutants_results_1.json
-    """
     safe_model_name = sanitize_model_name(model_name)
     model_dir = Path(base_output_dir) / safe_model_name
     model_dir.mkdir(parents=True, exist_ok=True)
