@@ -50,6 +50,10 @@ def save_results(results: list, output_path: str) -> None:
 
 
 def extract_prompt_text(record: dict) -> str:
+    """
+    Prefer rewritten_prompt for normalized/fixed files,
+    fallback to prompt_text for legacy files.
+    """
     if "rewritten_prompt" in record and isinstance(record["rewritten_prompt"], str):
         if record["rewritten_prompt"].strip():
             return record["rewritten_prompt"].strip()
@@ -73,14 +77,43 @@ def label_to_letter(label: int) -> str:
     return mapping.get(label, "INVALID")
 
 
-def parse_model_answer(raw_response: str) -> str:
+def parse_model_answer(raw_response: str, record: dict) -> str:
     """
     Normalize the model response to one of: A, B, C, INVALID.
+
+    For fixed prompts (role_based / chain_of_thought), prefer:
+    Answer: A
+
+    For legacy prompts, keep the simpler parsing.
     """
     if not raw_response:
         return "INVALID"
 
-    cleaned = raw_response.strip().upper()
+    text = raw_response.strip()
+    cleaned = text.upper()
+
+    transformation_name = record.get("transformation_name")
+    prompt_type = record.get("prompt_type")
+
+    is_fixed_prompt = (
+        transformation_name in {"role_based", "chain_of_thought"}
+        or prompt_type in {"role_based", "chain_of_thought"}
+    )
+
+    if is_fixed_prompt:
+        match = re.search(r"(?im)^Answer:\s*([ABC])\s*$", text)
+        if match:
+            return match.group(1).upper()
+
+        match = re.search(r"(?i)answer:\s*([ABC])\b", text)
+        if match:
+            return match.group(1).upper()
+
+        match = re.fullmatch(r"\s*([ABC])\s*", text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).upper()
+
+        return "INVALID"
 
     if cleaned in {"A", "B", "C"}:
         return cleaned
@@ -125,7 +158,6 @@ def build_output_path(
     base_output_dir: str = "experiments/outputs",
     unique: bool = True
 ) -> str:
-
     safe_model_name = sanitize_model_name(model_name)
     model_dir = Path(base_output_dir) / safe_model_name
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -141,7 +173,7 @@ def build_output_path(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run inference on rewritten prompts with local Ollama models"
+        description="Run inference on prompt files with local Ollama models"
     )
     parser.add_argument(
         "--model",
@@ -200,7 +232,7 @@ def main():
             print(f"Request failed: {e}")
             response_text = ""
 
-        parsed_answer = parse_model_answer(response_text)
+        parsed_answer = parse_model_answer(response_text, record)
         gold_letter = label_to_letter(record["gold_label"])
         is_correct = compute_correctness(parsed_answer, gold_letter)
 
@@ -209,7 +241,7 @@ def main():
             "category": record.get("category"),
             "model_name": args.model,
             "input_file": args.input,
-            "prompt_source_type": record.get("prompt_type", record.get("source_prompt_type")),
+            "prompt_source_type": record.get("source_prompt_type", record.get("prompt_type")),
             "transformation_name": record.get("transformation_name"),
             "rewriter_model": record.get("rewriter_model"),
             "prompt_text": prompt_text,

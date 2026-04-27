@@ -50,6 +50,24 @@ def save_prompt_records(records: list, output_path: Path) -> None:
         json.dump(records, f, ensure_ascii=False, indent=2)
 
 
+def extract_original_prompt(prompt_record: dict) -> str:
+    """
+    Read the baseline/original prompt text from the input record.
+    """
+    if "prompt_text" in prompt_record and isinstance(prompt_record["prompt_text"], str):
+        if prompt_record["prompt_text"].strip():
+            return prompt_record["prompt_text"].strip()
+
+    if "original_prompt" in prompt_record and isinstance(prompt_record["original_prompt"], str):
+        if prompt_record["original_prompt"].strip():
+            return prompt_record["original_prompt"].strip()
+
+    raise ValueError(
+        f"Missing original prompt for example_id={prompt_record.get('example_id')}. "
+        f"Available keys: {list(prompt_record.keys())}"
+    )
+
+
 def apply_role_based_prompting(prompt_text: str) -> str:
     """
     Replace only the first instruction line with a fixed role-based version.
@@ -87,15 +105,26 @@ def apply_fixed_transformation(prompt_text: str, transformation_name: str) -> st
     raise ValueError(f"Unsupported transformation: {transformation_name}")
 
 
+def get_transformation_target(transformation_name: str) -> str:
+    targets = {
+        "role_based": "Apply a fixed role-based prompting instruction.",
+        "chain_of_thought": "Apply a fixed chain-of-thought prompting instruction."
+    }
+    return targets[transformation_name]
+
+
 def build_mutant_record(prompt_record: dict, transformation_name: str) -> dict:
-    original_prompt = prompt_record["prompt_text"]
+    original_prompt = extract_original_prompt(prompt_record)
     mutated_prompt = apply_fixed_transformation(original_prompt, transformation_name)
 
     return {
         "example_id": prompt_record["example_id"],
         "category": prompt_record["category"],
-        "prompt_type": transformation_name,
-        "prompt_text": mutated_prompt,
+        "source_prompt_type": "baseline",
+        "transformation_name": transformation_name,
+        "transformation_target": get_transformation_target(transformation_name),
+        "original_prompt": original_prompt,
+        "rewritten_prompt": mutated_prompt,
         "gold_label": prompt_record["gold_label"],
         "gold_answer": prompt_record["gold_answer"],
         "stereotyped_groups": prompt_record.get("stereotyped_groups", [])
@@ -108,7 +137,7 @@ def default_output_path(transformation_name: str) -> Path:
         / "prompts"
         / "final"
         / transformation_name
-        / f"{transformation_name}_prompts.json"
+        / f"{transformation_name}_mutants_cleaned.json"
     )
 
 
