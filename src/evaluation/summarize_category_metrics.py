@@ -27,7 +27,10 @@ def infer_model_prompt_run(path: Path, input_root: Path):
     """
     Expected structure:
 
-    experiments/evaluations/llama3.1_8b/<prompt_type>/analysis_ready/<file>_analysis_ready.json
+    experiments/evaluations/<model>/<prompt_type>/analysis_ready/<file>_analysis_ready.json
+
+    Files ending in "_results_1", "_results_2", etc. are mapped to run 1, run 2, ...
+    Files ending only in "_results" are mapped to run 0.
     """
 
     relative_parts = path.relative_to(input_root).parts
@@ -118,6 +121,23 @@ def compute_metrics(records):
         if r.get("is_anti_biased_prediction", 0) == 1
     ]
 
+    nonaligned_fairness_prediction_records = [
+        r for r in fairness_prediction_records
+        if r.get("is_nonaligned_example", 0) == 1
+    ]
+
+    biased_error_records = [
+        r for r in nonaligned_fairness_prediction_records
+        if r.get("is_biased_prediction", 0) == 1
+        and r.get("is_correct", 0) == 0
+    ]
+
+    unbiased_success_nonaligned_records = [
+        r for r in nonaligned_fairness_prediction_records
+        if r.get("is_anti_biased_prediction", 0) == 1
+        and r.get("is_correct", 0) == 1
+    ]
+
     accuracy = safe_mean(
         r.get("is_correct", 0)
         for r in records
@@ -150,6 +170,16 @@ def compute_metrics(records):
     anti_biased_answer_rate = safe_rate(
         len(anti_biased_records),
         len(fairness_prediction_records)
+    )
+
+    biased_error_rate_nonaligned = safe_rate(
+        len(biased_error_records),
+        len(nonaligned_fairness_prediction_records)
+    )
+
+    unbiased_success_rate_nonaligned = safe_rate(
+        len(unbiased_success_nonaligned_records),
+        len(nonaligned_fairness_prediction_records)
     )
 
     sdis = None
@@ -188,11 +218,18 @@ def compute_metrics(records):
         "n_anti_biased": len(anti_biased_records),
         "biased_answer_rate": biased_answer_rate,
         "anti_biased_answer_rate": anti_biased_answer_rate,
+
+        "n_nonaligned_fairness_predictions": len(nonaligned_fairness_prediction_records),
+        "n_biased_errors": len(biased_error_records),
+        "n_unbiased_success_nonaligned": len(unbiased_success_nonaligned_records),
+        "biased_error_rate_nonaligned": biased_error_rate_nonaligned,
+        "unbiased_success_rate_nonaligned": unbiased_success_rate_nonaligned,
+
         "sdis": sdis,
     }
 
 
-def build_by_run_category_table(input_root: Path):
+def build_by_run_category_table(input_root: Path, runs: list[int] | None = None):
     analysis_files = sorted(input_root.rglob("*_analysis_ready.json"))
 
     if not analysis_files:
@@ -204,6 +241,9 @@ def build_by_run_category_table(input_root: Path):
         records = load_json(path)
 
         model, prompt_type, run = infer_model_prompt_run(path, input_root)
+
+        if runs is not None and run not in runs:
+            continue
 
         categories = sorted({
             record.get("category", "UNKNOWN")
@@ -228,6 +268,11 @@ def build_by_run_category_table(input_root: Path):
 
             row.update(metrics)
             rows.append(row)
+
+    if not rows:
+        raise FileNotFoundError(
+            f"No analysis-ready files matched the selected runs {runs} under: {input_root}"
+        )
 
     df = pd.DataFrame(rows)
 
@@ -311,9 +356,17 @@ def main():
         help="Output folder for category summary CSV files."
     )
 
+    parser.add_argument(
+        "--runs",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Runs to include, e.g. --runs 0 1 2"
+    )
+
     args = parser.parse_args()
 
-    by_run_df = build_by_run_category_table(args.input_root)
+    by_run_df = build_by_run_category_table(args.input_root, args.runs)
     summary_df = build_summary_table(by_run_df)
 
     save_csv(
@@ -328,6 +381,7 @@ def main():
 
     print()
     print("Done.")
+    print(f"Selected runs: {args.runs if args.runs is not None else 'all'}")
     print(f"Rows in by-run table: {len(by_run_df)}")
     print(f"Rows in summary table: {len(summary_df)}")
 

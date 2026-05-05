@@ -81,7 +81,7 @@ def compute_distribution(records):
     return row
 
 
-def build_by_category_run_table(input_root: Path):
+def build_by_category_run_table(input_root: Path, runs: list[int] | None = None):
     analysis_files = sorted(input_root.rglob("*_analysis_ready.json"))
 
     if not analysis_files:
@@ -93,6 +93,9 @@ def build_by_category_run_table(input_root: Path):
         records = load_json(path)
 
         model, prompt_type, run = infer_model_prompt_run(path, input_root)
+
+        if runs is not None and run not in runs:
+            continue
 
         records_by_category = {}
 
@@ -116,6 +119,11 @@ def build_by_category_run_table(input_root: Path):
 
             row.update(distribution)
             rows.append(row)
+
+    if not rows:
+        raise FileNotFoundError(
+            f"No analysis-ready files matched the selected runs {runs} under: {input_root}"
+        )
 
     df = pd.DataFrame(rows)
 
@@ -199,9 +207,17 @@ def main():
         help="Output folder for category-level prediction type distribution CSV files."
     )
 
+    parser.add_argument(
+        "--runs",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Runs to include, e.g. --runs 0 1 2"
+    )
+
     args = parser.parse_args()
 
-    by_category_run_df = build_by_category_run_table(args.input_root)
+    by_category_run_df = build_by_category_run_table(args.input_root, args.runs)
     category_summary_df = build_category_summary_table(by_category_run_df)
 
     save_csv(
@@ -216,6 +232,7 @@ def main():
 
     print()
     print("Done.")
+    print(f"Selected runs: {args.runs if args.runs is not None else 'all'}")
     print(f"Rows in by-category-run table: {len(by_category_run_df)}")
     print(f"Rows in category summary table: {len(category_summary_df)}")
 

@@ -10,10 +10,22 @@ METRIC_COLUMNS = [
     "n_records_total",
     "n_valid_predictions",
     "n_invalid_predictions",
-    "n_unknown_predictions",    
+    "n_unknown_predictions",
+    "n_target_predictions",
+    "n_nontarget_predictions",
+
+    "n_manual_review_records",
+    "n_fairness_ready_records",
     "n_aligned_examples",
     "n_nonaligned_examples",
     "n_fairness_prediction_records",
+    "n_biased_predictions",
+    "n_anti_biased_predictions",
+
+    # New nonaligned biased-error metrics
+    "n_nonaligned_fairness_prediction_records",
+    "n_biased_errors",
+    "n_unbiased_success_nonaligned",
 
     "accuracy_dis",
     "accuracy_valid_only",
@@ -24,6 +36,9 @@ METRIC_COLUMNS = [
     "unknown_rate",
     "unknown_rate_total",
     "unknown_rate_valid_only",
+    "target_prediction_rate_total",
+    "nontarget_prediction_rate_total",
+    "manual_review_rate",
 
     "accuracy_aligned",
     "accuracy_nonaligned",
@@ -31,6 +46,11 @@ METRIC_COLUMNS = [
 
     "biased_answer_rate",
     "anti_biased_answer_rate",
+
+    # New nonaligned biased-error rates
+    "biased_error_rate_nonaligned",
+    "unbiased_success_rate_nonaligned",
+
     "sdis",
 ]
 
@@ -41,11 +61,9 @@ def load_json(path: Path):
 
 
 def infer_model_prompt_run(path: Path, input_root: Path):
-
     relative_parts = path.relative_to(input_root).parts
 
     prompt_type = relative_parts[0]
-
     model = input_root.name
 
     filename = path.stem
@@ -54,6 +72,7 @@ def infer_model_prompt_run(path: Path, input_root: Path):
         filename = filename[:-len("_metrics")]
 
     # Detect run from names ending in "_results_1", "_results_2", etc.
+    # Files ending only in "_results" are treated as run 0.
     match = re.search(r"_results_(\d+)$", filename)
 
     if match:
@@ -64,7 +83,7 @@ def infer_model_prompt_run(path: Path, input_root: Path):
     return model, prompt_type, run
 
 
-def build_by_run_table(input_root: Path):
+def build_by_run_table(input_root: Path, runs: list[int] | None = None):
     metric_files = sorted(input_root.rglob("*_metrics.json"))
 
     if not metric_files:
@@ -77,6 +96,10 @@ def build_by_run_table(input_root: Path):
 
         model, prompt_type, run = infer_model_prompt_run(path, input_root)
 
+        # Keep only selected runs if --runs is provided.
+        if runs is not None and run not in runs:
+            continue
+
         row = {
             "model": model,
             "prompt_type": prompt_type,
@@ -86,10 +109,16 @@ def build_by_run_table(input_root: Path):
         for col in METRIC_COLUMNS:
             row[col] = metrics.get(col)
 
+        # Backward compatibility with older metric files.
         if row.get("unknown_rate_total") is None and row.get("unknown_rate") is not None:
             row["unknown_rate_total"] = row["unknown_rate"]
 
         rows.append(row)
+
+    if not rows:
+        raise FileNotFoundError(
+            f"No metric files matched the selected runs {runs} under: {input_root}"
+        )
 
     df = pd.DataFrame(rows)
 
@@ -170,9 +199,17 @@ def main():
         help="Output folder for summary CSV files."
     )
 
+    parser.add_argument(
+        "--runs",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Runs to include, e.g. --runs 0 1 2"
+    )
+
     args = parser.parse_args()
 
-    by_run_df = build_by_run_table(args.input_root)
+    by_run_df = build_by_run_table(args.input_root, args.runs)
     summary_df = build_summary_table(by_run_df)
 
     save_csv(
@@ -187,6 +224,7 @@ def main():
 
     print()
     print("Done.")
+    print(f"Selected runs: {args.runs if args.runs is not None else 'all'}")
     print(f"Rows in by-run table: {len(by_run_df)}")
     print(f"Rows in summary table: {len(summary_df)}")
 
