@@ -207,3 +207,6 @@ marimo/_lsp/
 __marimo__/
 
 
+# Local Files
+METRICS_DEFINITIONS.md
+SCRIPTS_COMMANDS.md
