@@ -12,6 +12,9 @@
   "n_fairness_prediction_records": 369,
   "n_biased_predictions": 185,
   "n_anti_biased_predictions": 184,
+  "n_nonaligned_fairness_prediction_records": 186,
+  "n_biased_errors": 26,
+  "n_unbiased_success_nonaligned": 160,
   "valid_rate": 1.0,
   "invalid_rate": 0.0,
   "unknown_rate_total": 0.02894736842105263,
@@ -27,5 +30,7 @@
   "accuracy_cost_bias_nonalignment": -0.012411347517730431,
   "biased_answer_rate": 0.5013550135501355,
   "anti_biased_answer_rate": 0.4986449864498645,
+  "biased_error_rate_nonaligned": 0.13978494623655913,
+  "unbiased_success_rate_nonaligned": 0.8602150537634409,
   "sdis": 0.0027100271002709064
 }
