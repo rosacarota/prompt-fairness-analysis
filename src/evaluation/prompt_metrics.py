@@ -1,6 +1,6 @@
+import argparse
 import json
 import re
-import argparse
 from pathlib import Path
 from collections import Counter
 
@@ -8,11 +8,20 @@ import pandas as pd
 import textstat
 import spacy
 
-# Load spaCy English model once
+
 nlp = spacy.load("en_core_web_sm")
 
 
-def load_records(path: Path):
+PROMPT_FILE_NAMES = {
+    "baseline_prompts.json",
+    "role_based_prompts.json",
+    "chain_of_thought_prompts.json",
+    "attribute_early_prompts.json",
+    "attribute_late_prompts.json",
+}
+
+
+def load_records(path: Path) -> list[dict]:
     """Load records from a .json or .jsonl file."""
     if path.suffix.lower() == ".json":
         with path.open("r", encoding="utf-8") as f:
@@ -22,29 +31,62 @@ def load_records(path: Path):
             return data
 
         if isinstance(data, dict):
-            for v in data.values():
-                if isinstance(v, list):
-                    return v
+            for value in data.values():
+                if isinstance(value, list):
+                    return value
 
         raise ValueError(f"Unsupported JSON structure in {path}")
 
-    elif path.suffix.lower() == ".jsonl":
-        out = []
+    if path.suffix.lower() == ".jsonl":
+        records = []
+
         with path.open("r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
+
                 if line:
-                    out.append(json.loads(line))
-        return out
+                    records.append(json.loads(line))
+
+        return records
 
     raise ValueError(f"Only .json and .jsonl are supported: {path}")
+
+
+def discover_input_files(input_file: Path | None, input_dir: Path | None) -> list[Path]:
+    if input_file is not None:
+        if not input_file.exists():
+            raise FileNotFoundError(f"Input file not found: {input_file}")
+
+        return [input_file]
+
+    if input_dir is None:
+        raise ValueError("Either --input-file or --input-dir must be provided.")
+
+    if not input_dir.exists():
+        raise FileNotFoundError(f"Input directory not found: {input_dir}")
+
+    files = []
+
+    for path in input_dir.rglob("*.json"):
+        if path.name in PROMPT_FILE_NAMES:
+            files.append(path)
+
+    for path in input_dir.rglob("*.jsonl"):
+        files.append(path)
+
+    files = sorted(files)
+
+    if not files:
+        raise FileNotFoundError(f"No prompt files found in: {input_dir}")
+
+    return files
 
 
 def safe_text(text) -> str:
     return "" if text is None else str(text)
 
 
-def normalize_for_yule(text: str):
+def normalize_for_yule(text: str) -> list[str]:
     text = text.lower()
     text = re.sub(r"[^a-z0-9\s']", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
@@ -53,19 +95,22 @@ def normalize_for_yule(text: str):
 
 def yules_k(text: str) -> float:
     tokens = normalize_for_yule(text)
+
     if not tokens:
         return 0.0
 
     freq = Counter(tokens)
     freq_of_freq = Counter(freq.values())
-    N = len(tokens)
-    summation = sum((i ** 2) * v_i for i, v_i in freq_of_freq.items())
-    k = 10000 * (summation - N) / (N ** 2)
+    token_total = len(tokens)
+
+    summation = sum((frequency ** 2) * count for frequency, count in freq_of_freq.items())
+    k = 10000 * (summation - token_total) / (token_total ** 2)
+
     return round(k, 6)
 
 
 def token_count_spacy(doc) -> int:
-    return sum(1 for t in doc if not t.is_space)
+    return sum(1 for token in doc if not token.is_space)
 
 
 def sentence_count_spacy(doc) -> int:
@@ -73,17 +118,24 @@ def sentence_count_spacy(doc) -> int:
 
 
 def average_sentence_length(doc) -> float:
-    sents = list(doc.sents)
-    if not sents:
+    sentences = list(doc.sents)
+
+    if not sentences:
         return 0.0
-    lengths = [sum(1 for t in sent if not t.is_space) for sent in sents]
+
+    lengths = [
+        sum(1 for token in sentence if not token.is_space)
+        for sentence in sentences
+    ]
+
     return round(sum(lengths) / len(lengths), 6)
 
 
-def pos_counts(doc):
-    noun_count = sum(1 for t in doc if t.pos_ in {"NOUN", "PROPN"})
-    verb_count = sum(1 for t in doc if t.pos_ in {"VERB", "AUX"})
-    adjective_count = sum(1 for t in doc if t.pos_ == "ADJ")
+def pos_counts(doc) -> tuple[int, int, int]:
+    noun_count = sum(1 for token in doc if token.pos_ in {"NOUN", "PROPN"})
+    verb_count = sum(1 for token in doc if token.pos_ in {"VERB", "AUX"})
+    adjective_count = sum(1 for token in doc if token.pos_ == "ADJ")
+
     return noun_count, verb_count, adjective_count
 
 
@@ -120,57 +172,138 @@ def extract_metrics(text: str) -> dict:
     }
 
 
-def get_modified_prompt(rec: dict) -> str:
-    if "rewritten_prompt" in rec:
-        return safe_text(rec.get("rewritten_prompt", ""))
+def get_prompt_text(record: dict) -> str:
+    prompt_text = record.get("prompt_text")
 
-    if "prompt_text" in rec:
-        return safe_text(rec.get("prompt_text", ""))
+    if isinstance(prompt_text, str) and prompt_text.strip():
+        return prompt_text.strip()
 
-    raise ValueError(f"Cannot detect modified prompt field. Keys: {list(rec.keys())}")
+    raise ValueError(
+        f"Missing prompt_text for "
+        f"example_id={record.get('example_id')}, "
+        f"category={record.get('category')}, "
+        f"prompt_type={record.get('prompt_type')}"
+    )
 
 
-def build_rows(records: list[dict]) -> list[dict]:
+def build_rows_for_file(path: Path) -> list[dict]:
+    records = load_records(path)
     rows = []
 
-    for rec in records:
-        modified_prompt = get_modified_prompt(rec)
+    for record in records:
+        prompt_text = get_prompt_text(record)
+        metrics = extract_metrics(prompt_text)
 
         row = {
-            "example_id": rec.get("example_id"),
-            "category": rec.get("category"),
+            "source_file": path.name,
+            "example_id": record.get("example_id"),
+            "category": record.get("category"),
+            "question_polarity": record.get("question_polarity"),
+            "prompt_type": record.get("prompt_type"),
+            "transformation_name": record.get("transformation_name"),
         }
 
-        metrics = extract_metrics(modified_prompt)
-        row.update({f"modified_{k}": v for k, v in metrics.items()})
+        row.update({f"prompt_{key}": value for key, value in metrics.items()})
 
         rows.append(row)
+
+    print(f"[OK] Loaded {len(rows)} records from {path}")
 
     return rows
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Compute prompt metrics on modified prompts for a single JSON/JSONL file."
+def build_summary(df: pd.DataFrame) -> pd.DataFrame:
+    metric_columns = [
+        column
+        for column in df.columns
+        if column.startswith("prompt_")
+    ]
+
+    group_columns = [
+        "prompt_type",
+        "transformation_name",
+    ]
+
+    summary = (
+        df
+        .groupby(group_columns, dropna=False)[metric_columns]
+        .agg(["mean", "std", "min", "max"])
+        .reset_index()
     )
-    parser.add_argument("--input-file", required=True, help="Input .json or .jsonl file.")
-    parser.add_argument("--output-file", required=True, help="Output CSV file.")
-    args = parser.parse_args()
 
-    input_path = Path(args.input_file)
-    output_path = Path(args.output_file)
+    summary.columns = [
+        "_".join(str(part) for part in column if part)
+        if isinstance(column, tuple)
+        else column
+        for column in summary.columns
+    ]
 
-    if not input_path.exists():
-        raise FileNotFoundError(f"Input file not found: {input_path}")
+    return summary
 
-    records = load_records(input_path)
-    rows = build_rows(records)
-    df = pd.DataFrame(rows)
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False, encoding="utf-8")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Compute linguistic/readability metrics for prompt_text fields."
+    )
 
-    print(f"[OK] {input_path} -> {output_path} | shape={df.shape}")
+    input_group = parser.add_mutually_exclusive_group(required=True)
+
+    input_group.add_argument(
+        "--input-file",
+        type=Path,
+        help="Single input .json or .jsonl prompt file.",
+    )
+
+    input_group.add_argument(
+        "--input-dir",
+        type=Path,
+        help="Directory containing prompt files.",
+    )
+
+    parser.add_argument(
+        "--output-file",
+        type=Path,
+        required=True,
+        help="Output CSV file with one row per prompt.",
+    )
+
+    parser.add_argument(
+        "--summary-file",
+        type=Path,
+        default=None,
+        help="Optional output CSV file with aggregate metrics by prompt type.",
+    )
+
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+
+    input_files = discover_input_files(
+        input_file=args.input_file,
+        input_dir=args.input_dir,
+    )
+
+    all_rows = []
+
+    for input_file in input_files:
+        all_rows.extend(build_rows_for_file(input_file))
+
+    df = pd.DataFrame(all_rows)
+
+    args.output_file.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(args.output_file, index=False, encoding="utf-8")
+
+    print(f"[DONE] Metrics saved to {args.output_file} | shape={df.shape}")
+
+    if args.summary_file is not None:
+        summary_df = build_summary(df)
+
+        args.summary_file.parent.mkdir(parents=True, exist_ok=True)
+        summary_df.to_csv(args.summary_file, index=False, encoding="utf-8")
+
+        print(f"[DONE] Summary saved to {args.summary_file} | shape={summary_df.shape}")
 
 
 if __name__ == "__main__":
