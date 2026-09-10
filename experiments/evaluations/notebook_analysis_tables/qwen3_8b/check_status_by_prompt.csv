@@ -1,0 +1,6 @@
+﻿prompt_type,understood_total,not_understood_total,invalid_check_status_total
+attribute_early,585.3,0.0,8.7
+attribute_late,586.9,0.0,7.1
+baseline,588.3,0.0,5.7
+chain_of_thought,588.8,0.0,5.2
+role_based,582.9,0.0,11.1

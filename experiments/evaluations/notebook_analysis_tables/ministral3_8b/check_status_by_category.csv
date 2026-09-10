@@ -1,0 +1,12 @@
+﻿category,understood_total,not_understood_total,invalid_check_status_total
+Age,54.0,0.0,0.0
+Disability_status,54.0,0.0,0.0
+Gender_identity,54.0,0.0,0.0
+Nationality,54.0,0.0,0.0
+Physical_appearance,53.66,0.34,0.0
+Race_ethnicity,53.44,0.56,0.0
+Race_x_SES,54.0,0.0,0.0
+Race_x_gender,53.98,0.0,0.02
+Religion,53.8,0.2,0.0
+SES,53.9,0.1,0.0
+Sexual_orientation,53.92,0.04,0.04

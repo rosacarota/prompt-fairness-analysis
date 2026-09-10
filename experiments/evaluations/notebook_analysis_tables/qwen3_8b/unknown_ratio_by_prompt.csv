@@ -1,0 +1,6 @@
+﻿prompt_type,unknown_over_valid_ratio_mean
+attribute_early,0.079124579124579
+attribute_late,0.1259259259259258
+baseline,0.0803030303030302
+chain_of_thought,0.0417857609257271
+role_based,0.1176767676767676
