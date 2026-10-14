@@ -5,6 +5,8 @@ from collections import Counter
 from difflib import SequenceMatcher
 from pathlib import Path
 
+PROMPT_SIMILARITY_THRESHOLD = 0.90
+
 try:
     from sentence_transformers import SentenceTransformer, util
 
@@ -508,6 +510,7 @@ def evaluate_generated_record(
         and result["no_invalid_formatting"] == 1
         and result["prompt_text_contains_context"] == 1
         and result["context_has_artifacts"] == 0
+        and result["prompt_semantic_similarity_to_baseline"] >= PROMPT_SIMILARITY_THRESHOLD
     )
 
     return result
