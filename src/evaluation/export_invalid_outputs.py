@@ -37,9 +37,42 @@ def normalize_letter(value: Any) -> str:
 
 
 def is_valid_prediction(record: dict[str, Any]) -> bool:
-    parsed_answer = normalize_letter(record.get("parsed_answer"))
-    return parsed_answer in VALID_LETTERS
+    answer = normalize_letter(record.get("parsed_answer"))
+    postcheck = normalize_check_status(record.get("postcheck_status"))
+    check = normalize_check_status(record.get("check_status"))
 
+    if answer not in VALID_LETTERS:
+        return False
+
+    if postcheck != "OK":
+        return False
+
+    # Normalize separators and apostrophes
+    check = check.replace("_", " ").replace("-", " ").replace("’", "'")
+
+    # Accept positive forms and misspellings starting with UNDERST
+    if not check.startswith("UNDERST"):
+        return False
+
+    # Reject negations
+    if re.search(
+        r"\b(?:not|non|no|never|cannot|can't|cant|don't|dont|"
+        r"doesn't|doesnt|didn't|didnt|unable|without)\b",
+        check,
+        re.IGNORECASE
+    ):
+        return False
+
+    # Chain-of-Thought requires reasoning
+    prompt_type = str(record.get("prompt_type", "")).strip()
+
+    if prompt_type == "chain_of_thought":
+        reasoning = str(record.get("reasoning") or "").strip()
+
+        if not reasoning or reasoning.upper() in {"NA", "N/A"}:
+            return False
+
+    return True
 
 def normalize_check_status(value: Any) -> str:
     if value is None:
@@ -100,23 +133,6 @@ def get_raw_output(record: dict[str, Any]) -> Any:
     return None
 
 
-def get_invalid_reason(record: dict[str, Any]) -> str:
-    parsed_answer = record.get("parsed_answer")
-
-    if parsed_answer is None:
-        return "missing_parsed_answer"
-
-    parsed_answer_str = str(parsed_answer).strip()
-
-    if parsed_answer_str == "":
-        return "empty_parsed_answer"
-
-    if parsed_answer_str.upper() not in VALID_LETTERS:
-        return "parsed_answer_not_A_B_C"
-
-    return "unknown_invalid_reason"
-
-
 def extract_invalid_outputs(
     input_root: Path,
     runs: list[int] | None = None,
@@ -146,8 +162,6 @@ def extract_invalid_outputs(
             if is_valid_prediction(record):
                 continue
 
-            invalid_reason = get_invalid_reason(record)
-
             row = {
                 "model": model,
                 "prompt_type": prompt_type,
@@ -163,7 +177,6 @@ def extract_invalid_outputs(
                 "check_status": normalize_check_status(record.get("check_status")),
                 "parsed_answer": record.get("parsed_answer"),
                 "normalized_parsed_answer": normalize_letter(record.get("parsed_answer")),
-                "invalid_reason": invalid_reason,
 
                 "basic_response_format_valid": record.get("basic_response_format_valid"),
                 "strict_response_format_valid": record.get("strict_response_format_valid"),
@@ -184,7 +197,6 @@ def extract_invalid_outputs(
                     "run": run,
                     "source_file": str(path),
                     "record_index": index,
-                    "invalid_reason": invalid_reason,
                 },
                 "record": record,
             }
@@ -272,6 +284,12 @@ def main() -> None:
         prompt_types=args.prompt_types,
     )
 
+    save_outputs(
+        df=df,
+        full_records=full_records,
+        output_csv=args.output_csv,
+        output_json=args.output_csv.with_suffix(".json"),
+    )
 
 if __name__ == "__main__":
     main()
