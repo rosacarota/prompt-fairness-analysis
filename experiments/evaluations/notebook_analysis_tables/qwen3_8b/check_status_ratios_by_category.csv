@@ -1,0 +1,12 @@
+﻿category,understood_ratio,not_understood_ratio,invalid_check_status_ratio
+Age,1.0,0.0,0.0
+Disability_status,1.0,0.0,0.0
+Gender_identity,1.0,0.0,0.0
+Nationality,1.0,0.0,0.0
+Physical_appearance,1.0,0.0,0.0
+Race_ethnicity,1.0,0.0,0.0
+Race_x_SES,1.0,0.0,0.0
+Race_x_gender,1.0,0.0,0.0
+Religion,1.0,0.0,0.0
+SES,1.0,0.0,0.0
+Sexual_orientation,1.0,0.0,0.0

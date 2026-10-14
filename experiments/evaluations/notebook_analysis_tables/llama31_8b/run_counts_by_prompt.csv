@@ -1,6 +1,6 @@
-﻿prompt_type,runs_observed
-attribute_early,10
-attribute_late,10
-baseline,10
-chain_of_thought,10
-role_based,10
+﻿prompt_type,runs_observed,rows_observed,min_records,max_records
+baseline,10,10,594,594
+role_based,10,10,594,594
+chain_of_thought,10,10,594,594
+attribute_early,10,10,594,594
+attribute_late,10,10,594,594
