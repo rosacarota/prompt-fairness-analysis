@@ -17,6 +17,7 @@ DEFAULT_SAVE_EVERY = 25
 RAW_RESPONSE_PREVIEW_CHARS = 300
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+SILICONFLOW_BASE_URL = "https://api.siliconflow.com/v1"
 
 DEFAULT_TOP_P = 1
 DEFAULT_MAX_TOKENS = 512
@@ -25,11 +26,11 @@ DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_SLEEP_SECONDS = 5
 
 QWEN_DISABLE_THINKING = True
-QWEN_REASONING_EFFORT = "none"
 
 MODEL_ALIASES = {
     "llama31_8b": "meta-llama/llama-3.1-8b-instruct",
-    "qwen3_8b": "qwen/qwen3-8b",
+    #"qwen3_8b": "qwen/qwen3-8b",
+    "qwen3_8b": "Qwen/Qwen3-8B",
     "ministral3_8b": "mistralai/ministral-8b-2512",
 }
 
@@ -67,6 +68,17 @@ client = OpenAI(
     },
 )
 
+SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
+
+siliconflow_client = (
+    OpenAI(
+        base_url=SILICONFLOW_BASE_URL,
+        api_key=SILICONFLOW_API_KEY,
+        timeout=DEFAULT_TIMEOUT_SECONDS,
+    )
+    if SILICONFLOW_API_KEY
+    else None
+)
 
 def load_json(path: Path) -> list[dict[str, Any]]:
     with path.open("r", encoding="utf-8") as f:
@@ -392,16 +404,18 @@ def is_qwen3_model(model_name: str) -> bool:
 
 def build_extra_body_for_model(model_name: str) -> dict[str, Any] | None:
     if QWEN_DISABLE_THINKING and is_qwen3_model(model_name):
-        return {
-            "reasoning": {
-                "effort": QWEN_REASONING_EFFORT,
-                "exclude": True,
-            }
-        }
+        return {"enable_thinking": False}
 
     return None
 
 def query_model(prompt_text: str, model_name: str) -> str:
+    api_client = siliconflow_client if is_qwen3_model(model_name) else client
+
+    if api_client is None:
+        raise RuntimeError(
+            "Missing SILICONFLOW_API_KEY in the .env file."
+        )
+
     last_error = ""
 
     for attempt in range(1, DEFAULT_MAX_RETRIES + 1):
@@ -422,7 +436,7 @@ def query_model(prompt_text: str, model_name: str) -> str:
             if extra_body is not None:
                 request_kwargs["extra_body"] = extra_body
 
-            response = client.chat.completions.create(**request_kwargs)
+            response = api_client.chat.completions.create(**request_kwargs)
 
             content = response.choices[0].message.content
             return content.strip() if content else ""
@@ -472,7 +486,7 @@ def build_result_record(
         "example_id": record.get("example_id"),
         "category": record.get("category"),
         "question_polarity": record.get("question_polarity"),
-        "api_provider": "openrouter",
+        "api_provider": "siliconflow" if is_qwen3_model(model_name) else "openrouter",
         "model_alias": model_alias,
         "model_name": model_name,
         "temperature": DEFAULT_TEMPERATURE,
