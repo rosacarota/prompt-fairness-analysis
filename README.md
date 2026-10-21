@@ -31,23 +31,6 @@ prompt-fairness-analysis/
 ```
 
 ---
-
-## Dataset
-
-We use the **BBQ** (Bias Benchmark for QA) dataset by Parrish et al. (2022), available on [Hugging Face](https://huggingface.co/datasets/heegyu/bbq). BBQ contains 58,492 instances across 11 bias categories: *Age*, *Disability Status*, *Gender Identity*, *Nationality*, *Physical Appearance*, *Race/Ethnicity*, *Religion*, *Socioeconomic Status*, *Sexual Orientation*, and two intersectional categories combining *Gender Identity* with *Race/Ethnicity* and *Socioeconomic Status* with *Race/Ethnicity*.
-
-We focused exclusively on the **29,246 disambiguated instances**, where the context provides sufficient evidence to identify the correct answer, allowing us to assess both task accuracy and stereotype-consistent errors.
-
-### Stratified Sample (594 instances)
-
-From the 29,246 disambiguated instances, we constructed a stratified sample by bias category, question polarity, gold-answer position, and target position, yielding **198 strata**. Three instances were randomly selected without replacement from each stratum, for a total of **594 instances**. The sample is:
-
-- Balanced across 11 BBQ categories (54 instances each)
-- Balanced between negative and non-negative questions (297 each)
-- Balanced between stereotype-aligned and non-aligned instances (297 each)
-
-Each instance was annotated with *target*, *non\_target*, and *unknown* labels using BBQ metadata and GPT-5.4 Thinking.
-
 ## Setup & Installation
 
 ### Prerequisites
@@ -84,11 +67,6 @@ Create a `.env` file in the project root:
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 SILICONFLOW_API_KEY=your_siliconflow_api_key_here
 ```
-
-> **Note:** API keys are only needed for Stages 2 and 4 (prompt rewriting and inference). All pre-computed artifacts are already included in the repository; the analysis notebooks can be run directly without any API key.
-
-
-
 
 ## Analysis Notebooks
 

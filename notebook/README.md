@@ -15,7 +15,7 @@ jupyter lab
 
 | Notebook | Description |
 |---|---|
-| `rq1_analysis.ipynb` | **Main RQ1 analysis.** Paired, category-stratified cluster bootstrap-t (10,000 resamples) comparing each prompting strategy against the zero-shot baseline, separately for each LLM. Reports observed differences, 95% confidence intervals, and Holm-adjusted p-values (within-family and global). |
+| `rq1_analysis.ipynb` | **Main RQ1 analysis.** Paired, category-stratified cluster bootstrap-t comparing each prompting strategy against the zero-shot baseline, separately for each LLM. Reports observed differences, 95% confidence intervals, and Holm-adjusted p-values (within-family and global). |
 
 ## RQ2 — Prompt Characteristics and Model Behavior
 

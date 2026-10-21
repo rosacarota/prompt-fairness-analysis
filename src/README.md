@@ -48,8 +48,6 @@ src/
 |---|---|
 | `model_runner.py` | Multi-run inference engine. Routes requests to **OpenRouter** (Llama-3.1 8B, Ministral-3 8B) or **SiliconFlow** (Qwen-3 8B) depending on the model alias. Handles automatic retries, incremental saves (`--save-every`), and automated run ID tracking (`run_01`, `run_02`, …). Requires `OPENROUTER_API_KEY` and `SILICONFLOW_API_KEY` in `.env`. |
 
-Model aliases: `llama31_8b`, `qwen3_8b`, `ministral3_8b`
-
 ---
 
 ## evaluation/

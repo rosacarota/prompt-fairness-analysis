@@ -33,16 +33,6 @@ Each instance includes:
 - A **question** about the individuals or groups
 - **Three answer options**: one for each individual/group and one *unknown* option
 
-## Annotations
-
-Each instance in `bbq_disambiguated_annotated.json` carries three additional labels:
-
-| Label | Description |
-|---|---|
-| `target` | The answer option that identifies the individual or group associated with the stereotype |
-| `non_target` | The answer option that identifies the comparison individual or group |
-| `unknown` | The answer option indicating insufficient information in the context |
-
 ## Stratified Sample (594 instances)
 
 The sample in `bbq_disambiguated_594_sample.json` was constructed by stratifying the 29,246 instances across four dimensions:
@@ -52,7 +42,6 @@ The sample in `bbq_disambiguated_594_sample.json` was constructed by stratifying
 - **Gold-answer position** (A, B, or C)
 - **Target position** (A, B, or C)
 
-This yields **198 strata**. Three instances were drawn without replacement from each stratum, producing 594 instances. The sample is balanced across categories (54 per category), polarities (297 each), and alignment (297 stereotype-aligned, 297 non-aligned).
 
 ## Prompts
 
